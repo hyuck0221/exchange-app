@@ -14,6 +14,13 @@ val dotenv = Properties().apply {
     }
 }
 
+val keystoreProps = Properties().apply {
+    val propsFile = rootProject.file("keystore.properties")
+    if (propsFile.exists()) {
+        load(FileInputStream(propsFile))
+    }
+}
+
 android {
     namespace = "com.example.exchange_app"
     compileSdk = 36
@@ -22,18 +29,34 @@ android {
         applicationId = "com.example.exchange_app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
+        versionName = System.getenv("VERSION_NAME") ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
+
         buildConfigField("String", "EXCHANGE_API_KEY", "\"${dotenv["EXCHANGE_API_KEY"] ?: ""}\"")
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(
+                System.getenv("SIGNING_STORE_FILE")
+                    ?: keystoreProps["storeFile"] as String? ?: "release.keystore"
+            )
+            storePassword = System.getenv("SIGNING_STORE_PASSWORD")
+                ?: keystoreProps["storePassword"] as String? ?: ""
+            keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                ?: keystoreProps["keyAlias"] as String? ?: ""
+            keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+                ?: keystoreProps["keyPassword"] as String? ?: ""
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

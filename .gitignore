@@ -18,3 +18,5 @@ local.properties
 /.idea
 /.kotlin
 /.omc
+release.keystore
+keystore.properties
