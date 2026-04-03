@@ -64,6 +64,7 @@ class ExchangeViewModel(private val dataStore: ExchangeDataStore) : ViewModel() 
     val targetSymbol = dataStore.targetSymbolFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
     val isInitialSetupComplete = dataStore.isInitialSetupCompleteFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
     val isRateLocked = dataStore.isRateLockedFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val isTipEnabled = dataStore.isTipEnabledFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     // UI States
     private val _availableCurrencies = MutableStateFlow<List<CurrencyCode>>(emptyList())
@@ -80,6 +81,15 @@ class ExchangeViewModel(private val dataStore: ExchangeDataStore) : ViewModel() 
 
     private val _foreignAmount = MutableStateFlow("")
     val foreignAmount: StateFlow<String> = _foreignAmount
+
+    private val _tipPercent = MutableStateFlow("")
+    val tipPercent: StateFlow<String> = _tipPercent
+
+    private val _tipAmountKrw = MutableStateFlow(0.0)
+    val tipAmountKrw: StateFlow<Double> = _tipAmountKrw
+
+    private val _krwAmountWithTip = MutableStateFlow("")
+    val krwAmountWithTip: StateFlow<String> = _krwAmountWithTip
 
     // Control visibility of fetch UI in Settings
     private val _isFetchUIReady = MutableStateFlow(false)
@@ -245,6 +255,48 @@ class ExchangeViewModel(private val dataStore: ExchangeDataStore) : ViewModel() 
         _isFetchUIReady.value = false
     }
 
+    fun updateTipPercent(percent: String) {
+        val clean = percent.replace(",", "")
+        if (clean.isEmpty()) {
+            _tipPercent.value = ""
+            recalculateTip()
+            return
+        }
+        val value = clean.toDoubleOrNull() ?: return
+        if (value > 100) return
+        _tipPercent.value = clean
+        recalculateTip()
+    }
+
+    private fun recalculateTip() {
+        val foreignValue = _foreignAmount.value.replace(",", "").toDoubleOrNull()
+        val rate = exchangeRate.value
+        val tipPct = _tipPercent.value.toDoubleOrNull() ?: 0.0
+
+        if (foreignValue == null || rate <= 0.0 || tipPct <= 0.0 || !isTipEnabled.value) {
+            _tipAmountKrw.value = 0.0
+            _krwAmountWithTip.value = _krwAmount.value
+            return
+        }
+
+        val tipForeign = foreignValue * (tipPct / 100.0)
+        val tipKrw = tipForeign * rate
+        _tipAmountKrw.value = tipKrw
+        val baseKrw = _krwAmount.value.replace(",", "").toDoubleOrNull() ?: 0.0
+        _krwAmountWithTip.value = String.format("%.0f", baseKrw + tipKrw)
+    }
+
+    fun setTipEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            dataStore.setTipEnabled(enabled)
+            if (!enabled) {
+                _tipPercent.value = ""
+                _tipAmountKrw.value = 0.0
+                _krwAmountWithTip.value = _krwAmount.value
+            }
+        }
+    }
+
     fun updateKrw(amount: String) {
         val cleanAmount = amount.replace(",", "")
         _krwAmount.value = cleanAmount
@@ -257,6 +309,7 @@ class ExchangeViewModel(private val dataStore: ExchangeDataStore) : ViewModel() 
                 _foreignAmount.value = String.format("%.2f", krwValue / rate)
             }
         }
+        recalculateTip()
         persistAmounts()
     }
 
@@ -272,6 +325,7 @@ class ExchangeViewModel(private val dataStore: ExchangeDataStore) : ViewModel() 
                 _krwAmount.value = String.format("%.0f", foreignValue * rate)
             }
         }
+        recalculateTip()
         persistAmounts()
     }
 
@@ -284,6 +338,9 @@ class ExchangeViewModel(private val dataStore: ExchangeDataStore) : ViewModel() 
     fun clearAmounts() {
         _krwAmount.value = ""
         _foreignAmount.value = ""
+        _tipPercent.value = ""
+        _tipAmountKrw.value = 0.0
+        _krwAmountWithTip.value = ""
         persistAmounts()
     }
 

@@ -35,6 +35,7 @@ fun SettingsScreen(
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val isLocked by viewModel.isRateLocked.collectAsStateWithLifecycle()
     val isFetchUIReady by viewModel.isFetchUIReady.collectAsStateWithLifecycle()
+    val isTipEnabled by viewModel.isTipEnabled.collectAsStateWithLifecycle()
 
     var rateInput by remember(currentRate) { 
         mutableStateOf(if (currentRate > 0) String.format("%.2f", currentRate) else "") 
@@ -174,9 +175,40 @@ fun SettingsScreen(
                     }
                 }
 
+                // 4. Tip Toggle
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "팁 계산 기능",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "외화 입력 시 팁 %를 추가하여 원화에 포함",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isTipEnabled,
+                            onCheckedChange = { viewModel.setTipEnabled(it) }
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 4. API Fetch Section
+                // 5. API Fetch Section
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

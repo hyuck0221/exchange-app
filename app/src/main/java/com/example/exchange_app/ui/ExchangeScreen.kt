@@ -32,6 +32,10 @@ fun ExchangeScreen(
     val targetSymbol by viewModel.targetSymbol.collectAsStateWithLifecycle()
     val exchangeRate by viewModel.exchangeRate.collectAsStateWithLifecycle()
     val availableCurrencies by viewModel.availableCurrencies.collectAsStateWithLifecycle()
+    val isTipEnabled by viewModel.isTipEnabled.collectAsStateWithLifecycle()
+    val tipPercent by viewModel.tipPercent.collectAsStateWithLifecycle()
+    val tipAmountKrw by viewModel.tipAmountKrw.collectAsStateWithLifecycle()
+    val krwAmountWithTip by viewModel.krwAmountWithTip.collectAsStateWithLifecycle()
 
     val selectedCurrencyInfo = availableCurrencies.find { it.currencyCode == targetCurrency }
     val foreignLabel = selectedCurrencyInfo?.let { "${it.countryName} (${it.unit} ${it.symbol})" } ?: targetCurrency
@@ -80,14 +84,56 @@ fun ExchangeScreen(
                 koreanUnit = if (targetCurrency == "KRW") "" else viewModel.formatKoreanUnit(foreignAmount)
             )
 
+            // Tip Percent Input
+            if (isTipEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "팁",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    TextField(
+                        value = tipPercent,
+                        onValueChange = { newValue ->
+                            val clean = newValue.replace(",", "")
+                            if (clean.isEmpty() || (clean.toDoubleOrNull() != null && clean.toDouble() <= 100)) {
+                                viewModel.updateTipPercent(clean)
+                            }
+                        },
+                        modifier = Modifier.width(100.dp),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent
+                        ),
+                        suffix = { Text("%") },
+                        placeholder = { Text("0") }
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
-            // KRW Input
+            // KRW Input (show tip-included amount when tip is active)
+            val displayKrw = if (isTipEnabled && tipAmountKrw > 0 && krwAmountWithTip.isNotEmpty()) krwAmountWithTip else krwAmount
+            val tipInfoText = if (isTipEnabled && tipAmountKrw > 0) {
+                val tipFormatted = DecimalFormat("#,###").format(tipAmountKrw.toLong())
+                "(팁 ${tipFormatted}원 포함)"
+            } else ""
+
             CurrencyInput(
                 label = "대한민국 (원 ₩)",
-                value = krwAmount,
+                value = displayKrw,
                 onValueChange = { viewModel.updateKrw(it) },
-                koreanUnit = viewModel.formatKoreanUnit(krwAmount)
+                koreanUnit = viewModel.formatKoreanUnit(displayKrw),
+                subLabel = tipInfoText
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -124,7 +170,8 @@ fun CurrencyInput(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    koreanUnit: String = ""
+    koreanUnit: String = "",
+    subLabel: String = ""
 ) {
     val decimalFormat = remember { DecimalFormat("#,###.##########") }
     val formattedValue = remember(value) {
@@ -145,6 +192,14 @@ fun CurrencyInput(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary
         )
+        if (subLabel.isNotEmpty()) {
+            Text(
+                text = subLabel,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,

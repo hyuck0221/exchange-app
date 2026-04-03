@@ -21,6 +21,7 @@ class ExchangeDataStore(private val context: Context) {
         val IS_RATE_LOCKED = booleanPreferencesKey("is_rate_locked")
         val LAST_KRW_AMOUNT = stringPreferencesKey("last_krw_amount")
         val LAST_FOREIGN_AMOUNT = stringPreferencesKey("last_foreign_amount")
+        val IS_TIP_ENABLED = booleanPreferencesKey("is_tip_enabled")
     }
 
     val isInitialSetupCompleteFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
@@ -57,6 +58,10 @@ class ExchangeDataStore(private val context: Context) {
 
     val lastForeignAmountFlow: Flow<String> = context.dataStore.data.map { preferences ->
         preferences[LAST_FOREIGN_AMOUNT] ?: ""
+    }
+
+    val isTipEnabledFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[IS_TIP_ENABLED] ?: false
     }
 
     suspend fun saveExchangeRate(
@@ -105,6 +110,12 @@ class ExchangeDataStore(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[LAST_KRW_AMOUNT] = krw
             preferences[LAST_FOREIGN_AMOUNT] = foreign
+        }
+    }
+
+    suspend fun setTipEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[IS_TIP_ENABLED] = enabled
         }
     }
 }
